@@ -1,0 +1,4 @@
+---
+# Variables spécifiques au rôle eks_config
+# On peut y mettre des timeouts ou des versions de binaires si besoin.
+coredns_annotation: "fargate"

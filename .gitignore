@@ -1,0 +1,22 @@
+.qodo
+.idea
+private.key
+public.key
+.qodo
+.env
+
+.qodo
+
+.qodo
+# Terraform local cache
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Binaires et dossiers système
+.venv/
+__pycache__/
+node_modules/
+target/
+*.jar

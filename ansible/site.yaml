@@ -1,0 +1,8 @@
+---
+- name: Configuration post-déploiement du cluster EKS
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  roles:
+    - eks_config

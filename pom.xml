@@ -1,0 +1,22 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.rajugowda</groupId>
+  <artifactId>ecommerce-microservices</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>shared-token-validation-lib</module>
+    <module>api-gateway</module>
+    <module>config-server</module>
+    <module>order-service</module>
+    <module>product-service</module>
+    <module>user-service</module>
+  </modules>
+
+</project>

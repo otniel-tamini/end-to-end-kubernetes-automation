@@ -1,0 +1,40 @@
+---
+- name: Mettre à jour le fichier kubeconfig local
+  ansible.builtin.shell: |
+    aws eks update-kubeconfig --region {{ aws_region }} --name {{ cluster_name }}
+  changed_when: false
+
+- name: Créer l'Access Entry pour l'administrateur
+  amazon.aws.eks_access_entry:
+    cluster_name: "{{ cluster_name }}"
+    principal_arn: "{{ admin_arn }}"
+    region: "{{ aws_region }}"
+    state: present
+    type: STANDARD
+
+- name: Associer la politique ClusterAdmin à l'utilisateur
+  amazon.aws.eks_access_policy_association:
+    cluster_name: "{{ cluster_name }}"
+    principal_arn: "{{ admin_arn }}"
+    policy_arn: "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+    region: "{{ aws_region }}"
+    access_scope:
+      type: cluster
+    state: present
+
+- name: Appliquer le patch Fargate sur le déploiement CoreDNS
+  kubernetes.core.k8s_json_patch:
+    name: coredns
+    namespace: kube-system
+    kind: Deployment
+    patch:
+      - op: add
+        path: /spec/template/metadata/annotations/eks.amazonaws.com~1compute-type
+        value: "fargate"
+
+- name: Créer le namespace applicatif
+  kubernetes.core.k8s:
+    name: "{{ app_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present

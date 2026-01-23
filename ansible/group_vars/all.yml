@@ -1,0 +1,10 @@
+---
+# Variables globales du projet
+cluster_name: "ecom-cluster"
+aws_region: "us-west-2"
+admin_arn: "arn:aws:iam::237568112172:user/otniel"
+
+# Namespace cible pour les applications
+app_namespace: "e-commerce"
+
+ansible_python_interpreter: "{{ playbook_dir }}/../.venv/bin/python"

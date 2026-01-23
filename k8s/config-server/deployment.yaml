@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+  namespace: e-commerce
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate 
+  selector:
+    matchLabels:
+      app: config-server
+  template:
+    metadata:
+      labels:
+        app: config-server
+    spec:
+      containers:
+      - name: config-server
+        image: otniel217/config-server:latest
+        ports:
+        - containerPort: 1000
+        env:
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_URI
+          value: "https://github.com/rajumb0232/E-Commerce-Microservice"
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GIT_USER
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GIT_PASS
+        # --- CONFIGURATION CRITIQUE ---
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_SEARCH_PATHS
+          value: "configuration" # Ne cherche que dans ce dossier
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_CLONE_ON_START
+          value: "true" # Force le clone au démarrage
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_TIMEOUT
+          value: "30" # Augmente le timeout pour le gros dépôt
+        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_BASED_DIR
+          value: "/app/config-data"
+        # ------------------------------
+        resources:
+          limits:
+            memory: "1Gi" # Augmenté car le clone d'un gros repo consomme de la RAM
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 1000
+          initialDelaySeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server
+  namespace: e-commerce
+spec:
+  selector:
+    app: config-server
+  ports:
+    - port: 1000
+      targetPort: 1000

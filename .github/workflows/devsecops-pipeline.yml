@@ -1,0 +1,68 @@
+name: "Microservices DevSecOps Pipeline"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # --- PHASE 1: CI & SECURITY SCAN ---
+  continuous-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and Test (Maven)
+        run: mvn clean package
+
+      - name: Static Analysis (Snyk)
+        uses: snyk/actions/maven@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # --- PHASE 2: CD (BUILD & PUSH) ---
+  continuous-deployment:
+    needs: continuous-integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-3
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Execute Build and Push Script
+        run: |
+          chmod +x build-and-push.sh
+          ./build-and-push.sh
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+  # --- PHASE 3: K8S DEPLOY & REPORT ---
+  k8s-deploy:
+    needs: continuous-deployment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Kubeconfig
+        run: aws eks update-kubeconfig --region eu-west-3 --name ton-cluster-eks
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/

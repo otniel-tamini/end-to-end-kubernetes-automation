@@ -3,5 +3,5 @@ spring:
     name: user-service
   config:
     import:
-    - "optional:configserver:http://localhost:1000"
+    - "optional:configserver:http://config-server:1000"
     - "classpath:cache-config.yml"

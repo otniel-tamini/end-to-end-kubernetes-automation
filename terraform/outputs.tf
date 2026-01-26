@@ -1,3 +1,7 @@
+# =============================================
+# OUTPUTS
+# =============================================
+
 output "cluster_name" {
   description = "Nom du cluster EKS"
   value       = module.eks.cluster_name
@@ -21,4 +25,14 @@ output "vpc_id" {
 output "configure_kubectl" {
   description = "Commande pour configurer kubectl localement"
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
+}
+
+output "eks_kubectl_policy_arn" {
+  description = "ARN de la policy IAM pour accès kubectl"
+  value       = aws_iam_policy.eks_kubectl_access.arn
+}
+
+output "current_user_arn" {
+  description = "ARN de l'utilisateur/rôle actuel"
+  value       = data.aws_caller_identity.current.arn
 }

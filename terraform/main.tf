@@ -1,6 +1,5 @@
 terraform {
   required_version = ">= 1.3.0"
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -10,6 +9,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.20"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.12"
+    }
   }
 }
 
@@ -17,13 +20,28 @@ provider "aws" {
   region = var.aws_region
 }
 
-# On garde uniquement l'authentification (elle ne bloque pas le plan)
-data "aws_eks_cluster_auth" "cluster" {
-  name = var.cluster_name
-}
+# Récupération de l'identité AWS actuelle
+data "aws_caller_identity" "current" {}
 
+# --- CONFIGURATION Provider Kubernetes ---
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
+  
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args = [
+      "eks",
+      "get-token",
+      "--cluster-name",
+      var.cluster_name,
+      "--region",
+      var.aws_region
+    ]
+  }
 }
+
+# --- CONFIGURATION Provider Helm ---
+# Le provider Helm utilise automatiquement la configuration Kubernetes ci-dessus
+# Aucune configuration supplémentaire n'est nécessaire

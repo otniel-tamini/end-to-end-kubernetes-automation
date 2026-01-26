@@ -1,15 +1,20 @@
 # APP CONFIGURATION (INTERNAL)
-app:
+env:
   base-url: /api/v1/users
   security:
-    secret-rotate-interval-millis: "${SECRET_ROTATE_INTERVAL_MILLIS:86400000}" # 1 day
+    # Correction du mapping : ton code Java attend une valeur numérique directe pour getTokenValidity()
+    # et non un objet imbriqué (access-validity/refresh-validity).
+    token-validity: "${TOKEN_VALIDITY_SECONDS:3600}"
+    
+    secret-rotate-interval-millis: "${SECRET_ROTATE_INTERVAL_MILLIS:86400000}"
+    
+    # CRITIQUE : Suppression des chemins Windows. Utilisation de chemins universels Linux/Docker.
+    # Ces clés devront être montées via un Kubernetes Secret dans /app/secrets/
     private-key:
-      path: "${JWT_PRIVATE_KEY_PATH:C:\\1WORKSPACE\\PROJECTS\\BACKEND\\MICROSERVICES\\E-Commerce-Microservice\\private.key}"
+      path: "${JWT_PRIVATE_KEY_PATH:/app/secrets/private.key}"
     public-key:
-      path: "${JWT_PUBLIC_KEY_PATH:C:\\1WORKSPACE\\PROJECTS\\BACKEND\\MICROSERVICES\\E-Commerce-Microservice\\public.key}"
-    token-validity:
-      access-validity: "${ACCESS_TOKEN_VALIDITY_SECONDS:3600}"
-      refresh-validity: "${REFRESH_TOKEN_VALIDITY_SECONDS:1209600}"
+      path: "${JWT_PUBLIC_KEY_PATH:/app/secrets/public.key}"
+      
     cookie:
       domain: "${DOMAIN_NAME:localhost}"
       secure: "${SECURE_COOKIES:false}"
@@ -19,12 +24,12 @@ spring:
   cache:
     type: redis
   redis:
-    host: "${REDIS_HOST:localhost}"
+    host: "${REDIS_HOST:redis}" # "redis" correspond au nom du service K8S
     port: "${REDIS_PORT:6379}"
 
-  # Service Discovery configuration
   cloud:
     consul:
       discovery:
         metadata:
-          basePath: ${app.base-url}
+          # Correction de la référence : app.base-url n'existe plus, c'est env.base-url
+          basePath: ${env.base-url}

@@ -16,6 +16,7 @@ permissions:
   packages: write
 
 jobs:
+  # --- JOB 1 : PARALLEL BUILD & SCAN ---
   build-and-scan:
     name: Build & Scan ${{ matrix.service }}
     runs-on: ubuntu-latest
@@ -52,18 +53,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # --- ÉTAPE 1 : Scan pour le MAIL (Format Tableau lisible) ---
-      - name: Run Trivy for Email (Table)
+      # Scan 1 : Format Tableau pour le rapport Humain
+      - name: Run Trivy for Report (Table)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.DOCKER_USER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}'
-          format: 'table'          # Format tableau pour humains
-          output: 'scan_report.txt' # On sauve le résultat dans un fichier texte
+          format: 'table'
+          output: 'scan_report.txt'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          exit-code: 0             # On ne bloque pas ici, on veut juste le rapport
+          exit-code: 0
 
-      # --- ÉTAPE 2 : Scan pour GITHUB (Format SARIF) ---
+      # Scan 2 : Format SARIF pour GitHub Security Tab
       - name: Run Trivy for GitHub (SARIF)
         uses: aquasecurity/trivy-action@master
         with:
@@ -72,45 +73,27 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-        continue-on-error: true    # On laisse passer pour uploader le rapport
+        continue-on-error: true
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload SARIF to GitHub
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
           category: ${{ matrix.service }}
 
-      # --- ÉTAPE 3 : Envoi du MAIL ---
-      - name: Send Security Report Email
-        uses: dawidd6/action-send-mail@v3
-        if: always() # On envoie le mail même si le scan trouve des failles
+      # PRÉPARATION POUR L'ENVOI GROUPÉ
+      # On renomme le fichier pour qu'il soit unique (ex: report_api-gateway.txt)
+      - name: Rename Report
+        run: mv scan_report.txt report_${{ matrix.service }}.txt
+
+      # On upload le fichier texte comme artefact temporaire
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
         with:
-          # Configuration SMTP (Exemple pour Gmail)
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          
-          # Destinataire et Contenu
-          subject: "🛡️ Security Scan: ${{ matrix.service }} - ${{ github.sha }}"
-          to: ${{ secrets.MAIL_USERNAME }} # Remplacer par ton email ou un secret
-          from: "DevSecOps Pipeline"
-          
-          # On utilise le fichier généré à l'étape 1 comme corps du mail
-          body: |
-            Le scan de sécurité est terminé pour le service ${{ matrix.service }}.
-            Voici le rapport des vulnérabilités (CRITICAL & HIGH) :
-            
-            ---------------------------------------------------
-            
-            ${{ steps.import_file.outputs.content }} 
-            
-            (Voir le fichier joint 'scan_report.txt' pour le détail complet si le texte est tronqué)
-          
-          # On attache le fichier texte directement
-          attachments: scan_report.txt
+          name: scan-results-${{ matrix.service }} # Nom unique par job
+          path: report_${{ matrix.service }}.txt
+          retention-days: 1
 
       - name: Push to Docker Hub
         if: success()
@@ -122,3 +105,64 @@ jobs:
           tags: |
             ${{ env.DOCKER_USER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
             ${{ env.DOCKER_USER }}/${{ matrix.service }}:latest
+
+  # --- JOB 2 : AGGREGATION & NOTIFICATION ---
+  email-notification:
+    name: Send Consolidated Report
+    needs: build-and-scan  # Attend que TOUS les builds soient finis
+    if: always()           # S'exécute même si un build a échoué (pour avoir le rapport des autres)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: scan-results-* # Télécharge tous les artefacts qui commencent par ce nom
+          merge-multiple: true    # Fusionne tout dans le même dossier
+          path: all-reports
+
+      # Script Bash pour fusionner les 5 fichiers textes en un seul gros rapport
+      - name: Merge Reports
+        run: |
+          echo "RAPPORT GLOBAL DE SÉCURITÉ - $(date)" > global_security_report.txt
+          echo "===================================================" >> global_security_report.txt
+          
+          # Boucle sur chaque fichier téléchargé
+          for file in all-reports/*.txt; do
+            # Extraction propre du nom du service depuis le nom de fichier
+            SERVICE_NAME=$(basename "$file" .txt | sed 's/report_//')
+            
+            echo "" >> global_security_report.txt
+            echo "###################################################" >> global_security_report.txt
+            echo "🔹 SERVICE: $SERVICE_NAME" >> global_security_report.txt
+            echo "###################################################" >> global_security_report.txt
+            cat "$file" >> global_security_report.txt
+            echo "" >> global_security_report.txt
+          done
+
+      - name: Send Summary Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          
+          subject: "🛡️ Security Report: Full Pipeline Scan - ${{ github.sha }}"
+          to: ${{ secrets.MAIL_USERNAME }}
+          from: "DevSecOps Pipeline"
+          
+          body: |
+            Le pipeline est terminé.
+            Veuillez trouver ci-joint le rapport de sécurité consolidé pour tous les services.
+            
+            Services scannés :
+            - config-server
+            - api-gateway
+            - user-service
+            - product-service
+            - order-service
+          
+          # On attache le fichier fusionné
+          attachments: global_security_report.txt

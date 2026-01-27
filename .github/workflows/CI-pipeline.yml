@@ -10,11 +10,10 @@ env:
   DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
   IMAGE_TAG: ${{ github.sha }}
 
-# --- CORRECTIF 1 : PERMISSIONS EXPLICITES ---
 permissions:
-  contents: read          # Pour cloner le code
-  security-events: write  # CRITIQUE : Pour uploader le rapport de sécurité (SARIF)
-  packages: write         # Si tu utilisais GHCR (optionnel ici mais bonne pratique)
+  contents: read
+  security-events: write
+  packages: write
 
 jobs:
   build-and-scan:
@@ -53,8 +52,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Scan Trivy
-      - name: Run Trivy vulnerability scanner
+      # --- ÉTAPE 1 : Scan pour le MAIL (Format Tableau lisible) ---
+      - name: Run Trivy for Email (Table)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_USER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}'
+          format: 'table'          # Format tableau pour humains
+          output: 'scan_report.txt' # On sauve le résultat dans un fichier texte
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: 0             # On ne bloque pas ici, on veut juste le rapport
+
+      # --- ÉTAPE 2 : Scan pour GITHUB (Format SARIF) ---
+      - name: Run Trivy for GitHub (SARIF)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.DOCKER_USER }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}'
@@ -62,24 +72,48 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-        # On continue même si Trivy échoue pour le moment, pour voir les logs
-        continue-on-error: true 
+        continue-on-error: true    # On laisse passer pour uploader le rapport
 
-      # --- CORRECTIF 2 : DEBUGGING ---
-      # Cette étape nous dira si le fichier est bien créé
-      - name: Check if SARIF file exists
-        run: ls -la trivy-results.sarif || echo "File not found!"
-
-      # --- CORRECTIF 3 : MISE A JOUR V4 ---
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4  # Mise à jour v3 -> v4
-        if: always() # Tente l'upload même si le scan a trouvé des failles
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
           sarif_file: 'trivy-results.sarif'
           category: ${{ matrix.service }}
 
+      # --- ÉTAPE 3 : Envoi du MAIL ---
+      - name: Send Security Report Email
+        uses: dawidd6/action-send-mail@v3
+        if: always() # On envoie le mail même si le scan trouve des failles
+        with:
+          # Configuration SMTP (Exemple pour Gmail)
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          
+          # Destinataire et Contenu
+          subject: "🛡️ Security Scan: ${{ matrix.service }} - ${{ github.sha }}"
+          to: ton.email@exemple.com # Remplacer par ton email ou un secret
+          from: "DevSecOps Pipeline"
+          
+          # On utilise le fichier généré à l'étape 1 comme corps du mail
+          body: |
+            Le scan de sécurité est terminé pour le service ${{ matrix.service }}.
+            Voici le rapport des vulnérabilités (CRITICAL & HIGH) :
+            
+            ---------------------------------------------------
+            
+            ${{ steps.import_file.outputs.content }} 
+            
+            (Voir le fichier joint 'scan_report.txt' pour le détail complet si le texte est tronqué)
+          
+          # On attache le fichier texte directement
+          attachments: scan_report.txt
+
       - name: Push to Docker Hub
-        if: success() # Push seulement si les étapes précédentes sont OK (ajuster selon politique de sécu)
+        if: success()
         uses: docker/build-push-action@v5
         with:
           context: .

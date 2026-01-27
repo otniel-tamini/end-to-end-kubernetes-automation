@@ -95,7 +95,7 @@ jobs:
           
           # Destinataire et Contenu
           subject: "🛡️ Security Scan: ${{ matrix.service }} - ${{ github.sha }}"
-          to: ton.email@exemple.com # Remplacer par ton email ou un secret
+          to: ${{ secrets.MAIL_USERNAME }} # Remplacer par ton email ou un secret
           from: "DevSecOps Pipeline"
           
           # On utilise le fichier généré à l'étape 1 comme corps du mail

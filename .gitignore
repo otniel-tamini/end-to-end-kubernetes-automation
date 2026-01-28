@@ -4,7 +4,13 @@ private.key
 public.key
 .qodo
 .env
+.claude
+.vscode
 
+# Ansible collections
+ansible/collections/
+# Si tu as des rôles téléchargés
+ansible/roles/external/
 .qodo
 
 .qodo

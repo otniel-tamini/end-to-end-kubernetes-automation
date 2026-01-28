@@ -1,194 +1,187 @@
+version: '3.8'
 services:
-  # --- INFRASTRUCTURE ---
   consul:
-    image: hashicorp/consul:1.15
+    image: 'hashicorp/consul:1.15'
     container_name: consul
+    command:
+      - agent
+      - '-dev'
+      - '-client=0.0.0.0'
     ports:
-      - "8500:8500"
-    command: "agent -dev -client=0.0.0.0"
+      - '8500:8500'
     networks:
-      - ecom-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7.0-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    networks:
-      - ecom-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # --- DATABASES ---
+      - e-commerce-network
   user-db:
-    image: mysql:8.0
+    image: 'mysql:8.0'
     container_name: user-db
     environment:
       MYSQL_DATABASE: user_db
-      MYSQL_ROOT_PASSWORD: root
-    networks:
-      - ecom-network
+      MYSQL_ROOT_PASSWORD: '${MYSQL_ROOT_PASSWORD:-root}'
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - '-h'
+        - localhost
       interval: 10s
-      timeout: 5s
       retries: 5
-
-  product-db:
-    image: mysql:8.0
-    container_name: product-db
-    environment:
-      MYSQL_DATABASE: product_db
-      MYSQL_ROOT_PASSWORD: root
     networks:
-      - ecom-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+      - e-commerce-network
   order-db:
-    image: mysql:8.0
+    image: 'mysql:8.0'
     container_name: order-db
     environment:
       MYSQL_DATABASE: order_db
-      MYSQL_ROOT_PASSWORD: root
-    networks:
-      - ecom-network
+      MYSQL_ROOT_PASSWORD: '${MYSQL_ROOT_PASSWORD:-root}'
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - '-h'
+        - localhost
       interval: 10s
-      timeout: 5s
       retries: 5
-
-  # --- CONFIGURATION ---
+    networks:
+      - e-commerce-network
+  redis:
+    image: 'redis:7.0-alpine'
+    container_name: redis
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+    networks:
+      - e-commerce-network
   config-server:
-    build:
-      context: .
-      dockerfile: config-server/Dockerfile
+    image: 'otniel217/config-server:latest'
     container_name: config-server
     ports:
-      - "1000:1000"
+      - '1000:1000'
     environment:
-      - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_CLOUD_CONFIG_SERVER_GIT_URI=https://github.com/rajumb0232/E-Commerce-Microservice
-      - SPRING_CLOUD_CONFIG_SERVER_GIT_USERNAME=${GIT_USER}
-      - SPRING_CLOUD_CONFIG_SERVER_GIT_PASSWORD=${GIT_PASS}
-    depends_on:
-      consul:
-        condition: service_healthy
+      SPRING_CLOUD_CONFIG_SERVER_GIT_URI: 'https://github.com/otniel-tamini/end-to-end-kubernetes-automation.git'
+      SPRING_CLOUD_CONFIG_SERVER_GIT_SEARCH_PATHS: configuration
+      SPRING_CLOUD_CONFIG_SERVER_GIT_DEFAULT_LABEL: main
+      SPRING_CLOUD_CONFIG_SERVER_GIT_USERNAME: '${GIT_USER}'
+      SPRING_CLOUD_CONFIG_SERVER_GIT_PASSWORD: '${GIT_PASS}'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1000/actuator/health"]
-      interval: 10s
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://localhost:1000/actuator/health'
+      interval: 20s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 5
     networks:
-      - ecom-network
-
-  # --- MICROSERVICES ---
-  api-gateway:
-    build:
-      context: .
-      dockerfile: api-gateway/Dockerfile
-    container_name: api-gateway
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000
-    depends_on:
-      consul:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-    networks:
-      - ecom-network
-
+      - e-commerce-network
   user-service:
-    build:
-      context: .
-      dockerfile: user-service/Dockerfile
+    image: otniel217/user-service:latest
     container_name: user-service
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000
-      - DB_URL=jdbc:mysql://user-db:3306/user_db
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
-      - SPRING_DATA_REDIS_HOST=redis
-      # FIX: Overriding Windows paths from Git config
-      - JWT_PRIVATE_KEY_PATH=/app/secrets/private.key
-      - JWT_PUBLIC_KEY_PATH=/app/secrets/public.key
-    depends_on:
-      consul:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      user-db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
-      - ecom-network
-
-  product-service:
-    build:
-      context: .
-      dockerfile: product-service/Dockerfile
-    container_name: product-service
-    ports:
-      - "8082:8082"
+      - e-commerce-network
     environment:
+      - SPRING_PROFILES_ACTIVE=prod
+
+      # On court-circuite le Config Server pour valider le boot
+      - SPRING_CLOUD_CONFIG_ENABLED=false
+
+      # INJECTION DIRECTE DES PROPRIÉTÉS SPRING (Noms standards)
+      - SPRING_DATASOURCE_URL=jdbc:mysql://user-db:3306/user_db?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver
+
+      # INFRA
+      - SPRING_DATA_REDIS_HOST=redis
       - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000
-      - DB_URL=jdbc:mysql://product-db:3306/product_db
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
+
+      # APP CONFIGURATION (JSON avec prefix "app" car @ConfigurationProperties(prefix = "app"))
+      - SPRING_APPLICATION_JSON={"app":{"baseUrl":"/api/v1/users","security":{"tokenValidity":{"accessValidity":3600000,"refreshValidity":604800000},"secretRotateIntervalMillis":86400000,"cookie":{"domain":"localhost","secure":false,"sameSite":"Lax"}}}}
     depends_on:
-      consul:
-        condition: service_healthy
+      user-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  product-db:
+    image: 'mysql:8.0'
+    container_name: product-db
+    environment:
+      MYSQL_DATABASE: product_db
+      MYSQL_ROOT_PASSWORD: '${MYSQL_ROOT_PASSWORD:-root}'
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - '-h'
+        - localhost
+      interval: 10s
+      retries: 5
+    networks:
+      - e-commerce-network
+  product-service:
+    image: 'otniel217/product-service:latest'
+    container_name: product-service
+    depends_on:
       config-server:
         condition: service_healthy
       product-db:
         condition: service_healthy
-    networks:
-      - ecom-network
-
-  order-service:
-    build:
-      context: .
-      dockerfile: order-service/Dockerfile
-    container_name: order-service
-    ports:
-      - "8083:8083"
-    environment:
-      - SPRING_CLOUD_CONSUL_HOST=consul
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000
-      - DB_URL=jdbc:mysql://order-db:3306/order_db
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
-    depends_on:
-      consul:
+      redis:
         condition: service_healthy
+    networks:
+      - e-commerce-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - CONSUL_HOST=consul
+      - 'SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000'
+      - SPRING_DATASOURCE_URL=jdbc:mysql://product-db:3306/product_db?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_APPLICATION_JSON={"app":{"base-url":"/api/v1"}}
+  order-service:
+    image: 'otniel217/order-service:latest'
+    container_name: order-service
+    depends_on:
       config-server:
         condition: service_healthy
       order-db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - ecom-network
-
+      - e-commerce-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - CONSUL_HOST=consul
+      - 'SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000'
+      - SPRING_DATASOURCE_URL=jdbc:mysql://order-db:3306/order_db?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_APPLICATION_JSON={"app":{"base-url":"/api/v1"}}
+  api-gateway:
+    image: 'otniel217/api-gateway:latest'
+    container_name: api-gateway
+    ports:
+      - '80:8080'
+    depends_on:
+      config-server:
+        condition: service_healthy
+    networks:
+      - e-commerce-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - CONSUL_HOST=consul
+      - 'SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:1000'
 networks:
-  ecom-network:
+  e-commerce-network:
     driver: bridge

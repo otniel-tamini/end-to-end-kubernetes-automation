@@ -1,6 +1,6 @@
 # 🛒 Secure E-Commerce Microservices Platform
 
-![CI Status](https://github.com/rajumb0232/E-Commerce-Microservice/actions/workflows/CI-pipeline.yml/badge.svg)
+![CI Status](https://github.com/otniel-tamini/end-to-end-kubernetes-automation.git/actions/workflows/CI-pipeline.yml/badge.svg)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)
 ![Security](https://img.shields.io/badge/Security-Trivy%20Scanned-4CAF50)
 ![Java](https://img.shields.io/badge/Java-17+-ED8B00?logo=openjdk&logoColor=white)
@@ -323,9 +323,9 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 **Otniel TAMINI**  
 *DevOps Engineer*
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?logo=linkedin)](https://linkedin.com/in/your-profile)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?logo=github)](https://github.com/rajumb0232)
-[![Email](https://img.shields.io/badge/Email-Contact-D14836?logo=gmail&logoColor=white)](mailto:your.email@example.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?logo=linkedin)](https://linkedin.com/in/otniel-tamini)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?logo=github)](https://github.com/otniel-tamini)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?logo=gmail&logoColor=white)](mailto:otnieltamini@gmail.com)
 
 ---
 

@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: spring-boot-monitor
+  namespace: monitoring # Là où tu as installé Helm
+  labels:
+    release: monitoring-stack # Doit correspondre au nom donné lors du 'helm install'
+spec:
+  selector:
+    matchLabels:
+      monitor: spring-boot # Cible les services avec ce label
+  namespaceSelector:
+    matchNames:
+      - e-commerce # Ton namespace d'application
+  endpoints:
+  - port: http-metrics # Nom du port que nous avons ajouté dans tes manifests corrigés
+    path: /actuator/prometheus
+    interval: 30s

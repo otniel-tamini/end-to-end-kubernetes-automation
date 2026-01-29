@@ -3,12 +3,24 @@ kind: Deployment
 metadata:
   name: api-gateway
   namespace: e-commerce
+  labels:
+    app: api-gateway
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
   template:
+    metadata:
+      labels:
+        app: api-gateway
+        monitor: spring-boot
     spec:
       containers:
       - name: api-gateway
         image: otniel217/api-gateway:latest
+        ports:
+        - containerPort: 1000
         env:
         - name: SPRING_PROFILES_ACTIVE
           value: "prod"
@@ -16,3 +28,18 @@ spec:
           value: "consul"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://config-server:1000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: e-commerce
+spec:
+  type: NodePort # Pour permettre l'accès externe si tu n'as pas d'Ingress
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 1000
+      targetPort: 1000
+      nodePort: 30000

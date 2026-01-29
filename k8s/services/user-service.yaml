@@ -1,33 +1,50 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: config-server
+  name: user-service
   namespace: e-commerce
+  labels:
+    app: user-service
+    monitor: spring-boot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: config-server
+      app: user-service
   template:
     metadata:
       labels:
-        app: config-server
+        app: user-service
+        monitor: spring-boot
     spec:
       containers:
-      - name: config-server
-        image: otniel217/config-server:latest
+      - name: user-service
+        image: otniel217/user-service:latest # Correction de l'image
+        ports:
+        - containerPort: 1000 # Port standard de tes services
         env:
-        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_URI
-          value: "https://github.com/otniel-tamini/end-to-end-kubernetes-automation.git"
-        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_DEFAULT_LABEL
-          value: "main"
-        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_USERNAME
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_CONFIG_IMPORT
+          value: "optional:configserver:http://config-server:1000"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://user-db:3306/user_db" # Pointe vers user-db
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "root"
+        - name: SPRING_DATASOURCE_PASSWORD
           valueFrom:
             secretKeyRef:
               name: app-secrets
-              key: GIT_USER
-        - name: SPRING_CLOUD_CONFIG_SERVER_GIT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: GIT_PASS
+              key: MYSQL_ROOT_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: e-commerce
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 1000
+      targetPort: 1000

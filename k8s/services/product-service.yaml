@@ -3,6 +3,9 @@ kind: Deployment
 metadata:
   name: product-service
   namespace: e-commerce
+  labels:
+    app: product-service
+    monitor: spring-boot
 spec:
   replicas: 2
   selector:
@@ -12,13 +15,21 @@ spec:
     metadata:
       labels:
         app: product-service
+        monitor: spring-boot
     spec:
       containers:
       - name: product-service
         image: otniel217/product-service:latest
+        ports:
+          - name: http-metrics
+            containerPort: 1000
         env:
         - name: SPRING_PROFILES_ACTIVE
           value: "prod"
+        - name: SPRING_CONFIG_IMPORT
+          value: "optional:configserver:http://config-server:1000"
+        - name: CONSUL_HOST
+          value: "consul"
         - name: SPRING_DATASOURCE_URL
           value: "jdbc:mysql://mysql-db:3306/product_db?createDatabaseIfNotExist=true"
         - name: SPRING_DATASOURCE_USERNAME
@@ -30,3 +41,16 @@ spec:
               key: MYSQL_ROOT_PASSWORD
         - name: SPRING_DATA_REDIS_HOST
           value: "redis"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: e-commerce
+spec:
+  selector:
+    app: product-service
+  ports:
+    - name: http
+      port: 1000
+      targetPort: 1000

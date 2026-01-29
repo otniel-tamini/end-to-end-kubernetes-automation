@@ -2,7 +2,6 @@ server:
   port: 0
 
 spring:
-
   # DATASOURCE CONFIGURATION
   datasource:
     url: ${DB_URL}
@@ -32,12 +31,18 @@ spring:
       name: none
       password: none
 
-# ACTUATOR CONFIGURATION (ACTUATOR)
+# ACTUATOR CONFIGURATION (MONITORING & HEALTH)
 management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        # Ajout de 'prometheus' à la liste des endpoints exposés
+        include: health, info, prometheus
   endpoint:
     health:
       show-details: always
+  # Activation explicite de l'exportation des métriques Prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true

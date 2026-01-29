@@ -141,8 +141,8 @@ graph LR
 #### 1️⃣ Cloner le repository
 
 ```bash
-git clone https://github.com/rajumb0232/E-Commerce-Microservice.git
-cd E-Commerce-Microservice
+git clone https://github.com/otniel-tamini/end-to-end-kubernetes-automation.git
+cd end-to-end-kubernetes-automation
 ```
 
 #### 2️⃣ Configurer les variables d'environnement
